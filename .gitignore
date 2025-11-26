@@ -1,0 +1,4 @@
+feature_experiments/*.pkl
+feature_experiments/*.png
+feature_experiments/*.json
+feature_experiments/*.csv
