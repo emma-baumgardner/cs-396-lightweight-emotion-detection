@@ -1,0 +1,185 @@
+{
+  "feature_set_name": "All_Features",
+  "num_features": 65,
+  "features": [
+    "au_shape_dim1",
+    "au_shape_dim2",
+    "au_shape_dim3",
+    "au_shape_dim4",
+    "au_shape_dim5",
+    "au_shape_dim6",
+    "au_shape_dim7",
+    "au_shape_dim8",
+    "gaze_yaw",
+    "gaze_pitch",
+    "mp_pose_yaw_deg",
+    "mp_pose_pitch_deg",
+    "mp_pose_roll_deg",
+    "bs__neutral",
+    "bs_browDownLeft",
+    "bs_browDownRight",
+    "bs_browInnerUp",
+    "bs_browOuterUpLeft",
+    "bs_browOuterUpRight",
+    "bs_cheekPuff",
+    "bs_cheekSquintLeft",
+    "bs_cheekSquintRight",
+    "bs_eyeBlinkLeft",
+    "bs_eyeBlinkRight",
+    "bs_eyeLookDownLeft",
+    "bs_eyeLookDownRight",
+    "bs_eyeLookInLeft",
+    "bs_eyeLookInRight",
+    "bs_eyeLookOutLeft",
+    "bs_eyeLookOutRight",
+    "bs_eyeLookUpLeft",
+    "bs_eyeLookUpRight",
+    "bs_eyeSquintLeft",
+    "bs_eyeSquintRight",
+    "bs_eyeWideLeft",
+    "bs_eyeWideRight",
+    "bs_jawForward",
+    "bs_jawLeft",
+    "bs_jawOpen",
+    "bs_jawRight",
+    "bs_mouthClose",
+    "bs_mouthDimpleLeft",
+    "bs_mouthDimpleRight",
+    "bs_mouthFrownLeft",
+    "bs_mouthFrownRight",
+    "bs_mouthFunnel",
+    "bs_mouthLeft",
+    "bs_mouthLowerDownLeft",
+    "bs_mouthLowerDownRight",
+    "bs_mouthPressLeft",
+    "bs_mouthPressRight",
+    "bs_mouthPucker",
+    "bs_mouthRight",
+    "bs_mouthRollLower",
+    "bs_mouthRollUpper",
+    "bs_mouthShrugLower",
+    "bs_mouthShrugUpper",
+    "bs_mouthSmileLeft",
+    "bs_mouthSmileRight",
+    "bs_mouthStretchLeft",
+    "bs_mouthStretchRight",
+    "bs_mouthUpperUpLeft",
+    "bs_mouthUpperUpRight",
+    "bs_noseSneerLeft",
+    "bs_noseSneerRight"
+  ],
+  "train_accuracy": 0.9996014771912113,
+  "val_accuracy": 0.9823321554770318,
+  "test_accuracy": 0.9860529986052998,
+  "cv_score": 0.9788516840953481,
+  "class_metrics": {
+    "angry": {
+      "precision": 0.9858256555634302,
+      "recall": 0.9768258426966292,
+      "f1": 0.9813051146384479,
+      "support": 1424
+    },
+    "disgust": {
+      "precision": 0.9732753262896209,
+      "recall": 0.9861460957178841,
+      "f1": 0.9796684391617141,
+      "support": 1588
+    },
+    "fear": {
+      "precision": 0.9945392491467577,
+      "recall": 0.9837947332883187,
+      "f1": 0.9891378139850645,
+      "support": 1481
+    },
+    "happy": {
+      "precision": 0.9918604651162791,
+      "recall": 0.9895591647331786,
+      "f1": 0.9907084785133565,
+      "support": 1724
+    },
+    "neutral": {
+      "precision": 0.9770937723693629,
+      "recall": 0.9934497816593887,
+      "f1": 0.9852038975099242,
+      "support": 1374
+    },
+    "sad": {
+      "precision": 0.986875,
+      "recall": 0.9955863808322825,
+      "f1": 0.9912115505335845,
+      "support": 1586
+    },
+    "surprise": {
+      "precision": 0.9922730199613651,
+      "recall": 0.976552598225602,
+      "f1": 0.9843500479080166,
+      "support": 1578
+    }
+  },
+  "training_time_seconds": 28.481560707092285,
+  "confusion_matrix": [
+    [
+      1391,
+      15,
+      2,
+      8,
+      2,
+      2,
+      4
+    ],
+    [
+      12,
+      1566,
+      1,
+      0,
+      2,
+      5,
+      2
+    ],
+    [
+      3,
+      6,
+      1457,
+      1,
+      5,
+      6,
+      3
+    ],
+    [
+      2,
+      5,
+      1,
+      1706,
+      7,
+      1,
+      2
+    ],
+    [
+      0,
+      2,
+      1,
+      0,
+      1365,
+      5,
+      1
+    ],
+    [
+      3,
+      3,
+      0,
+      1,
+      0,
+      1579,
+      0
+    ],
+    [
+      0,
+      12,
+      3,
+      4,
+      16,
+      2,
+      1541
+    ]
+  ]
+}

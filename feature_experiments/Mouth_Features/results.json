@@ -1,0 +1,129 @@
+{
+  "feature_set_name": "Mouth_Features",
+  "num_features": 9,
+  "features": [
+    "bs_jawOpen",
+    "bs_mouthSmileLeft",
+    "bs_mouthSmileRight",
+    "bs_mouthFrownLeft",
+    "bs_mouthFrownRight",
+    "bs_mouthPucker",
+    "bs_mouthFunnel",
+    "bs_mouthStretchLeft",
+    "bs_mouthStretchRight"
+  ],
+  "train_accuracy": 0.9955896809160711,
+  "val_accuracy": 0.8610749488562396,
+  "test_accuracy": 0.8698279869827987,
+  "cv_score": 0.8515102572423231,
+  "class_metrics": {
+    "angry": {
+      "precision": 0.8311965811965812,
+      "recall": 0.8195224719101124,
+      "f1": 0.8253182461103253,
+      "support": 1424
+    },
+    "disgust": {
+      "precision": 0.8274111675126904,
+      "recall": 0.8211586901763224,
+      "f1": 0.8242730720606827,
+      "support": 1588
+    },
+    "fear": {
+      "precision": 0.8566529492455418,
+      "recall": 0.8433490884537475,
+      "f1": 0.8499489622320517,
+      "support": 1481
+    },
+    "happy": {
+      "precision": 0.9225071225071225,
+      "recall": 0.9390951276102089,
+      "f1": 0.930727220465651,
+      "support": 1724
+    },
+    "neutral": {
+      "precision": 0.8893557422969187,
+      "recall": 0.9243085880640466,
+      "f1": 0.9064953604568166,
+      "support": 1374
+    },
+    "sad": {
+      "precision": 0.852670349907919,
+      "recall": 0.8757881462799496,
+      "f1": 0.8640746500777605,
+      "support": 1586
+    },
+    "surprise": {
+      "precision": 0.9016611295681063,
+      "recall": 0.8599493029150824,
+      "f1": 0.8803113850145962,
+      "support": 1578
+    }
+  },
+  "training_time_seconds": 13.291951179504395,
+  "confusion_matrix": [
+    [
+      1167,
+      73,
+      52,
+      31,
+      33,
+      22,
+      46
+    ],
+    [
+      88,
+      1304,
+      42,
+      33,
+      37,
+      47,
+      37
+    ],
+    [
+      56,
+      39,
+      1249,
+      32,
+      24,
+      55,
+      26
+    ],
+    [
+      20,
+      32,
+      28,
+      1619,
+      12,
+      5,
+      8
+    ],
+    [
+      13,
+      9,
+      6,
+      7,
+      1270,
+      61,
+      8
+    ],
+    [
+      28,
+      58,
+      49,
+      11,
+      28,
+      1389,
+      23
+    ],
+    [
+      32,
+      61,
+      32,
+      22,
+      24,
+      50,
+      1357
+    ]
+  ]
+}

@@ -1,0 +1,148 @@
+{
+  "feature_set_name": "AU_KeyBlendshapes",
+  "num_features": 28,
+  "features": [
+    "au_shape_dim1",
+    "au_shape_dim2",
+    "au_shape_dim3",
+    "au_shape_dim4",
+    "au_shape_dim5",
+    "au_shape_dim6",
+    "au_shape_dim7",
+    "au_shape_dim8",
+    "bs_eyeBlinkLeft",
+    "bs_eyeBlinkRight",
+    "bs_eyeSquintLeft",
+    "bs_eyeSquintRight",
+    "bs_eyeWideLeft",
+    "bs_eyeWideRight",
+    "bs_jawOpen",
+    "bs_mouthSmileLeft",
+    "bs_mouthSmileRight",
+    "bs_mouthFrownLeft",
+    "bs_mouthFrownRight",
+    "bs_mouthPucker",
+    "bs_mouthFunnel",
+    "bs_mouthStretchLeft",
+    "bs_mouthStretchRight",
+    "bs_browDownLeft",
+    "bs_browDownRight",
+    "bs_browInnerUp",
+    "bs_browOuterUpLeft",
+    "bs_browOuterUpRight"
+  ],
+  "train_accuracy": 0.9991498180079174,
+  "val_accuracy": 0.9665240840617445,
+  "test_accuracy": 0.9682938168293816,
+  "cv_score": 0.9594569193730295,
+  "class_metrics": {
+    "angry": {
+      "precision": 0.9717800289435601,
+      "recall": 0.9431179775280899,
+      "f1": 0.9572344975053457,
+      "support": 1424
+    },
+    "disgust": {
+      "precision": 0.94434250764526,
+      "recall": 0.9722921914357683,
+      "f1": 0.9581135587961527,
+      "support": 1588
+    },
+    "fear": {
+      "precision": 0.9688346883468835,
+      "recall": 0.9655638082376773,
+      "f1": 0.9671964829218803,
+      "support": 1481
+    },
+    "happy": {
+      "precision": 0.9859566998244588,
+      "recall": 0.9773781902552204,
+      "f1": 0.9816487037576463,
+      "support": 1724
+    },
+    "neutral": {
+      "precision": 0.9601139601139601,
+      "recall": 0.9810771470160117,
+      "f1": 0.9704823614110871,
+      "support": 1374
+    },
+    "sad": {
+      "precision": 0.9702048417132216,
+      "recall": 0.9854981084489282,
+      "f1": 0.9777916796997185,
+      "support": 1586
+    },
+    "surprise": {
+      "precision": 0.9759427828348505,
+      "recall": 0.9512040557667935,
+      "f1": 0.9634146341463414,
+      "support": 1578
+    }
+  },
+  "training_time_seconds": 16.753926992416382,
+  "confusion_matrix": [
+    [
+      1343,
+      38,
+      7,
+      11,
+      7,
+      3,
+      15
+    ],
+    [
+      18,
+      1544,
+      4,
+      1,
+      4,
+      9,
+      8
+    ],
+    [
+      6,
+      11,
+      1430,
+      5,
+      6,
+      17,
+      6
+    ],
+    [
+      5,
+      7,
+      13,
+      1685,
+      10,
+      1,
+      3
+    ],
+    [
+      5,
+      1,
+      4,
+      0,
+      1348,
+      13,
+      3
+    ],
+    [
+      3,
+      6,
+      7,
+      1,
+      4,
+      1563,
+      2
+    ],
+    [
+      2,
+      28,
+      11,
+      6,
+      25,
+      5,
+      1501
+    ]
+  ]
+}
