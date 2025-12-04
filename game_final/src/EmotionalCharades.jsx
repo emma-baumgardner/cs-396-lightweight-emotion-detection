@@ -1,20 +1,33 @@
 // use react + lucide-react + onnx runtime web lib
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Play, Pause, RotateCcw, Volume2, VolumeX } from 'lucide-react';
+import { Settings, Play, Pause, RotateCcw, Trophy, Home } from 'lucide-react';
 import * as ort from 'onnxruntime-web';
 
 export default function EmotionalCharades() {
 
   // game flow 
-  const [gameState, setGameState] = useState('menu'); // menu, playing, paused
+  const [gameState, setGameState] = useState('menu'); // menu, playing, paused, stats
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(1);
   const [timeLeft, setTimeLeft] = useState(60);
 
+  // stats tracking
+  const [roundStats, setRoundStats] = useState({
+    emotionsMatched: 0,
+    totalAttempts: 0,
+    averageConfidence: 0,
+    bestEmotion: '',
+    timeUsed: 0
+  });
+
+  // leaderboard
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [showNameInput, setShowNameInput] = useState(false);
+  const [playerName, setPlayerName] = useState('');
+
   // ui settings
   const [showSettings, setShowSettings] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(false); // sound off, can be improved later
-  const [difficulty, setDifficulty] = useState('medium'); // default
+  const [difficulty, setDifficulty] = useState('medium');
 
   // camera 
   const [cameraActive, setCameraActive] = useState(true);
@@ -28,6 +41,13 @@ export default function EmotionalCharades() {
   const canvasRef = useRef(null);
   const sessionRef = useRef(null);
   const faceLandmarkerRef = useRef(null);
+  
+  const confidenceSum = useRef(0);
+  const matchCount = useRef(0);
+  const detectionWindow = useRef([]);
+  const WINDOW_SIZE = 50;
+  const MATCH_THRESHOLD = 0.6;
+  const CONSISTENCY_THRESHOLD = 0.7; // 70% of frames must match
 
   // intialize detection array
   const [detectedExpressions, setDetectedExpressions] = useState([
@@ -40,9 +60,13 @@ export default function EmotionalCharades() {
     { emotion: 'Neutral', confidence: 0 },
   ]);
 
+  // windowing progress
+  const [windowProgress, setWindowProgress] = useState(0);
+
   // emotion labels (default emotion: happy)
   const emotionLabels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprised'];
   const [targetEmotion, setTargetEmotion] = useState('Happy');
+  const bestEmotionRef = useRef({ emotion: '', confidence: 0 });
 
   // feature names 
   const EYE_BLENDSHAPES = [
@@ -79,17 +103,13 @@ export default function EmotionalCharades() {
   };
 
   const estimateOpenFaceGaze = (faceLandmarks) => {
-    // MediaPipe iris landmarks (these track pupil position)
     const LEFT_IRIS_CENTER = 468;
     const RIGHT_IRIS_CENTER = 473;
-    
-    // Eye corner landmarks (to get eye center)
     const LEFT_EYE_INNER = 133;
     const LEFT_EYE_OUTER = 33;
     const RIGHT_EYE_INNER = 362;
     const RIGHT_EYE_OUTER = 263;
     
-    // Calculate eye centers
     const leftEyeCenter = {
       x: (faceLandmarks[LEFT_EYE_INNER].x + faceLandmarks[LEFT_EYE_OUTER].x) / 2,
       y: (faceLandmarks[LEFT_EYE_INNER].y + faceLandmarks[LEFT_EYE_OUTER].y) / 2,
@@ -102,11 +122,9 @@ export default function EmotionalCharades() {
       z: (faceLandmarks[RIGHT_EYE_INNER].z + faceLandmarks[RIGHT_EYE_OUTER].z) / 2
     };
     
-    // Get iris centers
     const leftIris = faceLandmarks[LEFT_IRIS_CENTER];
     const rightIris = faceLandmarks[RIGHT_IRIS_CENTER];
     
-    // Calculate gaze vectors (iris position relative to eye center)
     const leftGazeVec = {
       x: leftIris.x - leftEyeCenter.x,
       y: leftIris.y - leftEyeCenter.y,
@@ -119,29 +137,76 @@ export default function EmotionalCharades() {
       z: rightIris.z - rightEyeCenter.z
     };
     
-    // Average both eyes (OpenFace typically does this)
     const avgGazeVec = {
       x: (leftGazeVec.x + rightGazeVec.x) / 2,
       y: (leftGazeVec.y + rightGazeVec.y) / 2,
       z: (leftGazeVec.z + rightGazeVec.z) / 2
     };
     
-    // Convert to OpenFace-style angles
-    // Note: MediaPipe uses different coordinate system, may need sign adjustments
     const gazeYaw = Math.atan2(avgGazeVec.x, -avgGazeVec.z);
     const gazePitch = Math.atan2(avgGazeVec.y, -avgGazeVec.z);
     
     return {
-      yaw: gazeYaw,    // Already in radians
-      pitch: gazePitch // Already in radians
+      yaw: gazeYaw,
+      pitch: gazePitch
     };
+  };
+
+  // Load leaderboard from storage on mount
+  useEffect(() => {
+    const loadLeaderboard = async () => {
+      try {
+        const result = await window.storage.get('emotional-charades-leaderboard');
+        if (result && result.value) {
+          setLeaderboard(JSON.parse(result.value));
+        }
+      } catch (err) {
+        console.log('No existing leaderboard found');
+        setLeaderboard([]);
+      }
+    };
+    loadLeaderboard();
+  }, []);
+
+  // Save leaderboard to storage
+  const saveLeaderboard = async (newLeaderboard) => {
+    try {
+      await window.storage.set('emotional-charades-leaderboard', JSON.stringify(newLeaderboard));
+    } catch (err) {
+      console.error('Failed to save leaderboard:', err);
+    }
+  };
+
+  // Add score to leaderboard
+  const addToLeaderboard = (name) => {
+    const newEntry = {
+      name: name || 'Anonymous',
+      score: score,
+      round: round - 1,
+      date: new Date().toLocaleDateString(),
+      difficulty: difficulty
+    };
+    
+    const updatedLeaderboard = [...leaderboard, newEntry]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+    
+    setLeaderboard(updatedLeaderboard);
+    saveLeaderboard(updatedLeaderboard);
+    setShowNameInput(false);
+    setPlayerName('');
   };
 
 // load models (async)
 useEffect(() => {
   const loadModels = async () => {
     try {
-      // load ONNX emotion model
+      console.log("Fetching model size...");
+
+      const response = await fetch("/emotion_model.onnx");
+      const blob = await response.blob();
+      console.log("Model size:", (blob.size / 1024 / 1024).toFixed(2), "MB");
+
       console.log('Loading ONNX model...');
       let session;
       try {
@@ -152,7 +217,6 @@ useEffect(() => {
       sessionRef.current = session;
       console.log('ONNX model loaded successfully');
    
-      // load MediaPipe Face Landmarker (dynamic import)
       console.log('Loading MediaPipe Face Landmarker...');
       const vision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3');
       const { FaceLandmarker, FilesetResolver } = vision;
@@ -185,7 +249,7 @@ useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          setGameState('menu');
+          endGame();
           return 60;
         }
         return prev - 1;
@@ -219,7 +283,6 @@ useEffect(() => {
     };
   }, [gameState, modelLoaded]);
 
-// get gaze yaw and pitch
   const getEulerAngles = (matrix) => {
     try {
       let matrixData;
@@ -233,8 +296,6 @@ useEffect(() => {
         return { yaw: 0, pitch: 0, roll: 0 };
       }
       
-      // matrix is in column-major order (OpenGL style)
-      // convert to row-major for easier access: m[row][col]
       const m = [
         [matrixData[0], matrixData[4], matrixData[8], matrixData[12]],
         [matrixData[1], matrixData[5], matrixData[9], matrixData[13]],
@@ -242,7 +303,6 @@ useEffect(() => {
         [matrixData[3], matrixData[7], matrixData[11], matrixData[15]]
       ];
       
-      // rotation angles
       let pitch = Math.asin(Math.max(-1, Math.min(1, -m[2][0])));
       let yaw = Math.atan2(m[1][0], m[0][0]);
       let roll = Math.atan2(m[2][1], m[2][2]);
@@ -268,27 +328,22 @@ useEffect(() => {
 
         const results = faceLandmarkerRef.current.detectForVideo(videoRef.current, Date.now());
         if (!results.facialTransformationMatrixes || results.facialTransformationMatrixes.length === 0) {
-          console.log("No face detected.") // add user warning 
+          console.log("No face detected.")
           return; 
         }
         
         const features = [];
 
-        // gaze features 
         if (results.faceLandmarks && results.faceLandmarks.length > 0) {
           const gazeAngles = estimateOpenFaceGaze(results.faceLandmarks[0]);
           features.push(gazeAngles.yaw, gazeAngles.pitch);
-          console.log(`Gaze - Yaw: ${gazeAngles.yaw.toFixed(3)}, Pitch: ${gazeAngles.pitch.toFixed(3)}`);  
         } else {
-          // Fallback to zeros if no landmarks
           features.push(0, 0);
         }  
         
-        // pose features
         const poseAngles = getEulerAngles(results.facialTransformationMatrixes[0]);
         features.push(poseAngles.yaw, poseAngles.pitch, poseAngles.roll);
 
-        // key blend shapes
         if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
           const blendshapes = results.faceBlendshapes[0];
           const blendshapeMap = {};
@@ -301,7 +356,6 @@ useEffect(() => {
             features.push(blendshapeMap[name] || 0);
           });
         } else {
-          // user warning
           features.push(...Array(20).fill(0));
         }
 
@@ -314,7 +368,6 @@ useEffect(() => {
         try {
           const options = { outputNames: ['probabilities'] };
           emoResults = await sessionRef.current.run(feeds, options);
-          console.log('Model prediction successful.');
         } catch (selectiveError) {
           console.log('Model prediction failed.');
         }      
@@ -331,7 +384,6 @@ useEffect(() => {
             console.error('Cannot find data in output');
             return;
           }
-          console.log('Got confidences:', confidences);
         } catch (dataError) {
           console.error('Error accessing tensor data:', dataError);
           return;
@@ -344,17 +396,56 @@ useEffect(() => {
         
         setDetectedExpressions(newExpressions);
 
-        // check if target emotion is detected
+        newExpressions.forEach(exp => {
+          if (exp.confidence > bestEmotionRef.current.confidence) {
+            bestEmotionRef.current = { emotion: exp.emotion, confidence: exp.confidence };
+          }
+        });
+
+        // Windowing logic for consistent detection
         const targetExp = newExpressions.find(e => e.emotion === targetEmotion);
-        if (targetExp && targetExp.confidence > 0.6) {
-          setScore(prev => prev + Math.round(targetExp.confidence * 100));
-          setRound(prev => prev + 1);
-          setTargetEmotion(getRandomEmotion());
+        
+        // Add current detection to window
+        if (targetExp && targetExp.confidence > MATCH_THRESHOLD) {
+          detectionWindow.current.push(true);
+        } else {
+          detectionWindow.current.push(false);
+        }
+
+        // Keep window at fixed size
+        if (detectionWindow.current.length > WINDOW_SIZE) {
+          detectionWindow.current.shift();
+        }
+
+        // Calculate progress
+        const matchesInWindow = detectionWindow.current.filter(x => x).length;
+        const progress = (matchesInWindow / WINDOW_SIZE) * 100;
+        setWindowProgress(progress);
+
+        // Check if we have enough consistent detections
+        if (detectionWindow.current.length === WINDOW_SIZE) {
+          const consistencyRate = matchesInWindow / WINDOW_SIZE;
+          
+          if (consistencyRate >= CONSISTENCY_THRESHOLD) {
+            // Award points based on average confidence
+            const avgConfidence = targetExp ? targetExp.confidence : 0.7;
+            const points = Math.round(avgConfidence * 100);
+            setScore(prev => prev + points);
+            
+            // Track stats
+            confidenceSum.current += avgConfidence;
+            matchCount.current += 1;
+            
+            // Reset window and get new emotion
+            detectionWindow.current = [];
+            setWindowProgress(0);
+            setTargetEmotion(getRandomEmotion());
+          }
         }
       } catch (err) {
         console.error('Inference error:', err);
       }
-    }, 200);
+    }, 50);
 
     return () => clearInterval(interval);
   }, [gameState, modelLoaded, targetEmotion, KEY_BLENDSHAPES]);
@@ -365,7 +456,31 @@ useEffect(() => {
       setTimeLeft(60);
       setScore(0);
       setRound(1);
+      confidenceSum.current = 0;
+      bestEmotionRef.current = { emotion: '', confidence: 0 };
+      matchCount.current = 0;
+      detectionWindow.current = [];
+      setWindowProgress(0);
       setTargetEmotion(getRandomEmotion());
+  };
+
+  const endGame = () => {
+    const finalStats = {
+      emotionsMatched: matchCount.current,
+      totalAttempts: round - 1,
+      averageConfidence: matchCount.current > 0 ? 
+        Math.round((confidenceSum.current / matchCount.current) * 100) : 0,
+      timeUsed: 60 - timeLeft,
+      bestEmotion: bestEmotionRef.current.emotion || ''
+    };
+    setRoundStats(finalStats);
+    
+    // Check if score qualifies for leaderboard
+    if (leaderboard.length < 10 || score > leaderboard[leaderboard.length - 1]?.score) {
+      setShowNameInput(true);
+    }
+    
+    setGameState('stats');
   };
 
   const pauseGame = () => {
@@ -376,12 +491,19 @@ useEffect(() => {
     setGameState('menu');
     setCameraActive(false);
     setScore(0);
-    setRound(1);
     setTimeLeft(60);
+    setShowNameInput(false);
   };
 
   const getRandomEmotion = () => {
-    const emotions = ['Happy', 'Sad', 'Angry', 'Surprised', 'Neutral', 'Fear', 'Disgust'];
+    let emotions;
+    if (difficulty === 'easy') {
+      emotions = ['Happy', 'Sad', 'Fear'];
+    } else if (difficulty === 'medium') {
+      emotions = ['Happy', 'Sad', 'Fear', 'Surprised', 'Neutral'];
+    } else {
+      emotions = ['Happy', 'Sad', 'Angry', 'Fear', 'Surprised', 'Neutral', 'Disgust'];
+    }
     return emotions[Math.floor(Math.random() * emotions.length)];
   };
 
@@ -457,35 +579,162 @@ useEffect(() => {
               <Settings size={20} />
               Game Settings
             </h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Difficulty Level</label>
-                <select
-                  value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value)}
-                  className="bg-white bg-opacity-20 rounded-lg px-4 py-2 w-full text-white"
-                >
-                  <option value="easy" className="bg-gray-800">Easy - 70s</option>
-                  <option value="medium" className="bg-gray-800">Medium - 60s</option>
-                  <option value="hard" className="bg-gray-800">Hard - 45s</option>
-                </select>
+            <div className="max-w-md">
+              <label className="block text-sm font-medium mb-2">Difficulty Level</label>
+              <select
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+                className="bg-white bg-opacity-20 rounded-lg px-4 py-2 w-full text-white"
+              >
+                <option value="easy" className="bg-gray-800">Easy - 3 Emotions</option>
+                <option value="medium" className="bg-gray-800">Medium - 5 Emotions</option>
+                <option value="hard" className="bg-gray-800">Hard - 7 Emotions</option>
+              </select>
+              <p className="text-xs text-gray-300 mt-2">
+                {difficulty === 'easy' && '😊 😢 😬'}
+                {difficulty === 'medium' && '😊 😢 😬 😮 😐'}
+                {difficulty === 'hard' && '😊 😢 😠 😬 😮 😐 🤮'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Stats Screen */}
+        {gameState === 'stats' && (
+          <div className="space-y-6">
+            <div className="text-center space-y-4">
+              <div className="text-6xl">🎉</div>
+              <h2 className="text-4xl font-bold">Round Complete!</h2>
+              <p className="text-xl text-gray-300">Here's how you did</p>
+            </div>
+
+            {/* Final Score */}
+            <div className="bg-gradient-to-r from-pink-500 to-purple-500 bg-opacity-30 rounded-lg p-8 text-center">
+              <p className="text-sm font-medium mb-2">FINAL SCORE</p>
+              <p className="text-7xl font-bold">{score}</p>
+            </div>
+
+            {/* Statistics Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white bg-opacity-10 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-300 mb-1">Emotions Matched</p>
+                <p className="text-3xl font-bold">{roundStats.emotionsMatched}</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Audio</label>
-                <button
-                  onClick={() => setSoundEnabled(!soundEnabled)}
-                  className="flex items-center gap-2 p-2 hover:bg-white hover:bg-opacity-10 rounded-lg transition-all w-full justify-center"
-                >
-                  {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-                  <span>{soundEnabled ? 'Sound On' : 'Sound Off'}</span>
-                </button>
+              <div className="bg-white bg-opacity-10 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-300 mb-1">Rounds Played</p>
+                <p className="text-3xl font-bold">{round}</p>
               </div>
+              <div className="bg-white bg-opacity-10 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-300 mb-1">Avg Confidence</p>
+                <p className="text-3xl font-bold">{roundStats.averageConfidence}%</p>
+              </div>
+              <div className="bg-white bg-opacity-10 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-300 mb-1">Best Emotion</p>
+                <p className="text-3xl">{emojiDictionary(roundStats.bestEmotion)}</p>
+              </div>
+            </div>
+
+            {/* Name Input for Leaderboard */}
+            {showNameInput && (
+              <div className="bg-yellow-500 bg-opacity-20 rounded-lg p-6 text-center space-y-4">
+                <Trophy size={48} className="mx-auto text-yellow-400" />
+                <h3 className="text-2xl font-bold">You made the leaderboard!</h3>
+                <p className="text-gray-300">Enter your name to save your score</p>
+                <div className="flex gap-2 max-w-md mx-auto">
+                  <input
+                    type="text"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    placeholder="Your name"
+                    maxLength={20}
+                    className="flex-1 px-4 py-2 rounded-lg bg-white bg-opacity-20 text-white placeholder-gray-400"
+                    onKeyPress={(e) => e.key === 'Enter' && addToLeaderboard(playerName)}
+                  />
+                  <button
+                    onClick={() => addToLeaderboard(playerName)}
+                    className="bg-green-500 hover:bg-green-600 px-6 py-2 rounded-lg font-bold transition-all"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            )}
+
+
+            {/* Leaderboard */}
+            <div className="bg-white bg-opacity-10 rounded-lg p-6">
+              <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                <Trophy className="text-yellow-400" />
+                Leaderboard
+              </h3>
+              {leaderboard.length === 0 ? (
+                <p className="text-center text-gray-300 py-8">No scores yet. Be the first!</p>
+              ) : (
+                <div className="space-y-2">
+                  {leaderboard.map((entry, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        idx === 0 ? 'bg-yellow-500 bg-opacity-30' :
+                        idx === 1 ? 'bg-gray-400 bg-opacity-20' :
+                        idx === 2 ? 'bg-orange-600 bg-opacity-20' :
+                        'bg-white bg-opacity-5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl font-bold w-8">
+                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`}
+                        </span>
+                        <div>
+                          <p className={
+                            entry.difficulty === 'easy' ? 'text-green-400' :
+                            entry.difficulty === 'medium' ? 'text-yellow-400' :
+                            'text-red-400'
+                          }>
+                            {entry.difficulty.toUpperCase()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold">{entry.score}</p>
+                        <p className="text-sm text-gray-300">{entry.round} rounds</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => {
+                  setRound(prev => prev + 1);  // ⭐ increment round here
+                  startGame();
+                }}
+              >
+                Play Again
+              </button>
+              <button
+                onClick={startGame}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-8 py-4 rounded-lg text-xl font-bold transition-all"
+              >
+                <Play size={24} />
+                Play Again
+              </button>
+              <button
+                onClick={resetGame}
+                className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 px-8 py-4 rounded-lg text-xl font-bold transition-all"
+              >
+                <Home size={24} />
+                Main Menu
+              </button>
             </div>
           </div>
         )}
 
         {/* Menu Screen */}
-        {gameState === 'menu' ? (
+        {gameState === 'menu' && (
           <div className="text-center space-y-8 py-12">
             <div className="text-8xl mb-4">🎭</div>
             
@@ -512,8 +761,37 @@ useEffect(() => {
                 </div>
               ))}
             </div>
+
+            {/* Leaderboard Preview on Menu */}
+            {leaderboard.length > 0 && (
+              <div className="mt-12 max-w-2xl mx-auto bg-white bg-opacity-10 rounded-lg p-6">
+                <h3 className="text-2xl font-bold mb-4 flex items-center justify-center gap-2">
+                  <Trophy className="text-yellow-400" />
+                  Top Scores
+                </h3>
+                <div className="space-y-2">
+                  {leaderboard.slice(0, 5).map((entry, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2 rounded-lg bg-white bg-opacity-5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl font-bold w-6">
+                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`}
+                        </span>
+                        <span className="font-medium">{entry.name}</span>
+                      </div>
+                      <span className="text-xl font-bold">{entry.score}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
+        )}
+
+        {/* Playing Screen */}
+        {(gameState === 'playing' || gameState === 'paused') && (
           <div className="space-y-6">
             {/* Stats Dashboard */}
             <div className="grid grid-cols-3 gap-4">
@@ -538,6 +816,27 @@ useEffect(() => {
               <p className="text-sm font-medium mb-2">TARGET EMOTION</p>
               <div className="text-7xl mb-3">{emojiDictionary(targetEmotion)}</div>
               <p className="text-3xl font-bold">{targetEmotion}</p>
+              
+              {/* Window Progress Bar */}
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Detection Progress</span>
+                  <span className="font-bold">{Math.round(windowProgress)}%</span>
+                </div>
+                <div className="bg-white bg-opacity-20 rounded-full h-4 overflow-hidden">
+                  <div
+                    className={`h-full transition-all ${
+                      windowProgress >= 70 ? 'bg-green-500' :
+                      windowProgress >= 40 ? 'bg-yellow-400' :
+                      'bg-red-400'
+                    }`}
+                    style={{ width: `${windowProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-300">
+                  Hold the expression consistently to score!
+                </p>
+              </div>
             </div>
 
             {/* Video and Detection */}
@@ -556,6 +855,14 @@ useEffect(() => {
                     <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                     <span className="text-sm font-bold">LIVE</span>
                   </div>
+                  {gameState === 'paused' && (
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                      <div className="text-center">
+                        <Pause size={64} className="mx-auto mb-4" />
+                        <p className="text-2xl font-bold">PAUSED</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
